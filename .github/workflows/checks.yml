@@ -36,7 +36,7 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
           components: rust-src, rustfmt
-      - run: ./tools/check-examples.sh
+      - run: ./tickbox/pre-commit/31-examples.sh
 
   msrv:
     runs-on: ubuntu-latest

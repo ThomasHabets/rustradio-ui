@@ -2,14 +2,13 @@
 
 <https://github.com/ThomasHabets/rustradio-ui>
 
-[RustRadio](https://github.com/ThomasHabets/rustradio).
+For [RustRadio](https://github.com/ThomasHabets/rustradio).
 
 ## Setup
 
 ```sh
 rustup target add wasm32-unknown-unknown
 ./tools/check.sh
-./tools/check-examples.sh # Uses the examples' nightly toolchain and rust-src.
 ```
 
 The examples have independent Cargo workspaces and their own build scripts.
