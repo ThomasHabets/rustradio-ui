@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, e.g. 0.2.3"
-        required: true
+        description: "Version to release (leave blank for the next patch version)"
+        required: false
+        default: ""
         type: string
 
 permissions:
