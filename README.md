@@ -1,14 +1,10 @@
 # Rustradio UI library, running as WASM in the browser.
 
-The DSP library is [RustRadio](https://github.com/ThomasHabets/rustradio).
+<https://github.com/ThomasHabets/rustradio-ui>
 
-## Development
+[RustRadio](https://github.com/ThomasHabets/rustradio).
 
-This is a standalone repository. It currently uses unreleased RustRadio APIs;
-check out the RustRadio repository alongside it as `../rustradio`. The crate and
-both examples use that sibling checkout, so no published API is substituted.
-
-Rust 1.98 or newer is required. Install the browser target and run the checks:
+## Setup
 
 ```sh
 rustup target add wasm32-unknown-unknown

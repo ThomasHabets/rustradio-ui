@@ -1,8 +1,8 @@
 //! Block for getting data from the UI thread, which in turn is getting it from
 //! websocket or a file.
-use rustradio::Result;
 use rustradio::block::{Block, BlockRet};
-use rustradio::stream::{ReadStream, WriteStream, new_stream};
+use rustradio::stream::{new_stream, ReadStream, WriteStream};
+use rustradio::Result;
 
 // TODO: magic value.
 const PRODUCE_CHANNEL_SIZE: usize = 10;
@@ -39,7 +39,7 @@ impl<App: crate::ApplicationSpecific + 'static, T: rustradio::Sample> WasmSource
         receiver: impl Into<String>,
     ) -> Result<(Self, ReadStream<T>, async_channel::Sender<Msg<T>>)> {
         let (tx, rx) = async_channel::bounded(PRODUCE_CHANNEL_SIZE);
-        let (dst, src) = new_stream()?;
+        let (dst, src) = new_stream();
         Ok((
             Self {
                 receiver: receiver.into(),
