@@ -1,14 +1,26 @@
 # Rustradio UI library, running as WASM in the browser.
 
-<https://github.com/ThomasHabets/rustradio>
+The DSP library is [RustRadio](https://github.com/ThomasHabets/rustradio).
 
-## Status
+## Development
 
-This code is in the process of being migrated / cleaned up from
-<https://github.com/ThomasHabets/ruwasm>.
+This is a standalone repository. It currently uses unreleased RustRadio APIs;
+check out the RustRadio repository alongside it as `../rustradio`. The crate and
+both examples use that sibling checkout, so no published API is substituted.
 
-This code is a work in progress, and no promises of being backwards
-compatible.
+Rust 1.98 or newer is required. Install the browser target and run the checks:
+
+```sh
+rustup target add wasm32-unknown-unknown
+./tools/check.sh
+```
+
+The examples have independent Cargo workspaces and their own build scripts.
+Their HTML/WASM version checks now use this repository's Git version. See the
+[application skill](.agents/skills/rustradio-ui-app/SKILL.md) for worker setup,
+themes, packaging, and cross-origin isolation.
+
+This code is a work in progress, with no promise of backwards compatibility.
 
 ## Examples
 
@@ -60,10 +72,9 @@ that no longer fits the window.
 The X axis uses milliseconds when the displayed span is shorter than one second;
 longer spans use seconds. This changes tick labels and the unit label together.
 
-## Problems
+## Worker startup
 
-It's currently possible to initialize the worker and the main thread with
-different application specific messages. This invokes UB, since the
-BootstrapMpsc message will not point to the type it thinks it'll point to.
-
-This should be fixed with a better startup API.
+The bootstrap checks that the main and worker message types match before
+reconstructing their channels. Applications should use the library startup API;
+bootstrap pointer transfer still assumes shared memory and a live pointer that
+is transferred only once.

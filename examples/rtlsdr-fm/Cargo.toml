@@ -23,7 +23,7 @@ web-sys = { version = "0.3.102", features = ["HtmlSelectElement", "Response", "W
 crate-type = ["cdylib"]
 
 [patch.crates-io]
-rustradio = { path = "../../.." }
+rustradio = { path = "../../../rustradio" }
 rustradio-ui = { path = "../.." }
 
 [package.metadata.wasm-pack.profile.profiling]

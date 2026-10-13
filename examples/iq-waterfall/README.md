@@ -10,7 +10,7 @@ There is no WebUSB or audio setup.
 Install `wasm-pack` and the nightly Rust toolchain with `rust-src`, then run:
 
 ```sh
-cd rustradio-ui/examples/iq-waterfall
+cd examples/iq-waterfall
 ./build-local.sh
 python3 serve.py
 ```

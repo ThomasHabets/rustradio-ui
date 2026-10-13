@@ -1,0 +1,36 @@
+name: Run WASM benchmark for UI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  wasm-bench:
+    runs-on: ubuntu-latest
+    name: Run WASM benchmark
+    defaults:
+      run:
+        working-directory: rustradio-ui
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        path: rustradio-ui
+    - uses: actions/checkout@v6
+      with:
+        repository: ThomasHabets/rustradio
+        path: rustradio
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: rustradio-ui -> target
+    - name: Install wasm-pack
+      run: cargo install wasm-pack --locked
+    - name: Run benchmark
+      run: wasm-pack test --release  --headless --chrome .   -- --bench

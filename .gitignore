@@ -1,0 +1,11 @@
+/target/
+*~
+*.swp
+*.swo
+*.bin
+*.data
+*.c32
+*.u8
+*.f32
+*.tgz
+__pycache__/

@@ -1,0 +1,54 @@
+name: Check UI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rustradio-ui
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: rustradio-ui
+      - uses: actions/checkout@v6
+        with:
+          repository: ThomasHabets/rustradio
+          path: rustradio
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - run: ./tools/check.sh
+      - run: cargo install wasm-pack --locked
+      - run: wasm-pack test --headless --chrome . --features unstable --lib --locked
+
+  msrv:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rustradio-ui
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: rustradio-ui
+      - uses: actions/checkout@v6
+        with:
+          repository: ThomasHabets/rustradio
+          path: rustradio
+      - name: Check minimum supported Rust version
+        shell: bash
+        run: |
+          msrv="$(sed -n 's/^rust-version = "\([^"]*\)"/\1/p' Cargo.toml)"
+          test -n "$msrv"
+          rustup toolchain install "$msrv" --profile minimal --target wasm32-unknown-unknown
+          cargo "+$msrv" check --locked --target wasm32-unknown-unknown --all-features
