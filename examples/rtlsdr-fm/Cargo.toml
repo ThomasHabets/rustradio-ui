@@ -22,9 +22,6 @@ web-sys = { version = "0.3.102", features = ["HtmlSelectElement", "Response", "W
 [lib]
 crate-type = ["cdylib"]
 
-[patch.crates-io]
-rustradio-ui = { path = "../.." }
-
 [package.metadata.wasm-pack.profile.profiling]
 # wasm-bindgen, called by wasm-pack, needs to be told to keep debug info in
 # profiling profile.

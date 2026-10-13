@@ -1,6 +1,6 @@
 ---
 name: rustradio-ui-app
-description: Build or modify a WASM application using rustradio-ui, including worker graphs, browser controls, plots, shared-memory bootstrap, and packaging. Use for applications and examples built on this crate; use the new-block skill for standalone processing blocks.
+description: Build or modify a WASM application using rustradio-ui, including worker graphs, browser controls, plots, shared-memory bootstrap, and packaging. Use for applications and examples built on this crate.
 ---
 
 # Write a RustRadio UI application
@@ -29,9 +29,9 @@ skill. Read the relevant example before choosing APIs or copying build settings.
   component styles.
 
 For a new application inside this repository, follow the examples' standalone
-Cargo workspace layout. Use local crate paths or patches consistently when
-working on unpublished APIs. For an external application, use the dependencies
-appropriate to that project. Read versions and features from current manifests;
+Cargo workspace layout. Use a local path for this repository's UI crate and
+published crates for external dependencies. For an external application, use the
+dependencies appropriate to that project. Read versions and features from current manifests;
 do not copy all of an example's dependencies or SIMD flags automatically.
 
 ## Split UI and DSP work
@@ -59,8 +59,8 @@ DSP graph. An existing application's equivalent structure is fine.
 
 Use the macro for sequences of constructors returning `(block, output)`,
 including an already-created source tuple. It adds each block and returns the
-last output stream. Put `?` on fallible constructors inside the macro. All constructors that
-allocate copying stream outputs, including `WasmSource::new()`, return `Result`.
+last output stream. Put `?` on fallible constructors inside the macro, including
+`WasmSource::new()`.
 
 ```rust
 use rustradio::blockchain;
@@ -71,7 +71,7 @@ let bins = blockchain![
     graph,
     prev,
     (source, samples),
-    StreamChunks::new(prev, fft_size)?,
+    StreamChunks::new(prev, fft_size),
     Fft::from_fft_size(prev, fft_size)?,
 ];
 ```
@@ -84,9 +84,10 @@ more values into the macro. Prefer named streams over a large manually assembled
 sequence of temporary blocks.
 
 Reuse existing processing blocks and display components. If a new processing
-block is actually needed, apply [new-block](../../../../rustradio/.agents/skills/new-block/SKILL.md) for its derive,
-ports, backpressure, tags, EOF, and tests; app-local derives must not use the main
-crate's `crate` option.
+block is actually needed, follow the app-local derive in
+[iq-waterfall's worker](../../../examples/iq-waterfall/src/worker.rs) and the
+[UI worker blocks](../../../src/worker) for ports, backpressure, tags, EOF, and
+tests. App-local derives must not use the main crate's `crate` option.
 
 ## Bound traffic and handle the session lifecycle
 
