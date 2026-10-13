@@ -18,6 +18,14 @@ themes, packaging, and cross-origin isolation.
 
 This code is a work in progress, with no promise of backwards compatibility.
 
+## Releases
+
+Run the GitHub Actions **Release** workflow on `main` and enter the new crate
+version. Configure the repository secret `CARGO_REGISTRY_TOKEN` with permission
+to publish `rustradio-ui`. The workflow uses `tickbox/bump_version` to build,
+test, check compatibility, commit the version bump, push the commit and tag,
+and publish to crates.io.
+
 ## Examples
 
 - [`rtlsdr-fm`](examples/rtlsdr-fm): WebUSB FM receiver with audio and waterfall.
