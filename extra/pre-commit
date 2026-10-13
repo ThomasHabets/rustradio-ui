@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+if [[ ${NO_PRECOMMIT:-} = true ]]; then
+        exit 0
+fi
+
+if [[ ${AI_REVIEW:-} = true ]]; then
+    exec < /dev/tty
+    CODEBOT=codebot
+    if which "${CODEBOT}" > /dev/null; then
+        echo "---------------- AI reviewer -------------------"
+        git diff HEAD | "$CODEBOT" -s 'you are a code reviewer. Find any problems that this code change could cause, any mistakes, or other suggestions for improvements'
+        echo "--------- Still want to go ahead? y/n ----------"
+        read A
+        if [[ ! $A = "y" ]]; then
+            exit 1
+        fi
+    fi
+fi
+exec schedtool -D -e tickbox --dir tickbox/pre-commit

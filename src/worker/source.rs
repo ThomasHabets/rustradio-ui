@@ -1,8 +1,8 @@
 //! Block for getting data from the UI thread, which in turn is getting it from
 //! websocket or a file.
-use rustradio::block::{Block, BlockRet};
-use rustradio::stream::{new_stream, ReadStream, WriteStream};
 use rustradio::Result;
+use rustradio::block::{Block, BlockRet};
+use rustradio::stream::{ReadStream, WriteStream, new_stream};
 
 // TODO: magic value.
 const PRODUCE_CHANNEL_SIZE: usize = 10;
