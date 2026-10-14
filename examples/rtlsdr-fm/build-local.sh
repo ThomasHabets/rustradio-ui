@@ -34,3 +34,5 @@ sed -i "s/GIT_VERSION_NOT_SET/$GIT/g" "$TMPD/$PREFIX/index.html"
 (
         cd "$TMPD" && tar czf - "$PREFIX"
 ) > "$PREFIX".tgz
+tar xf "$PREFIX.tgz"
+mv rtlsdr-fm web-dist

@@ -15,7 +15,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
-    directory = Path(__file__).resolve().parent / "web-dist"
+    #directory = Path(__file__).resolve().parent / "web-dist"
+    directory = Path(".") / "web-dist"
     if not (directory / "index.html").exists():
         parser.error("Run ./build-local.sh first")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), functools.partial(Handler, directory=str(directory)))

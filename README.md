@@ -1,18 +1,21 @@
-# Rustradio UI library, running as WASM in the browser.
+# Rustradio UI library, running as WASM in the browser
 
 <https://github.com/ThomasHabets/rustradio-ui>
 
 For [RustRadio](https://github.com/ThomasHabets/rustradio).
 
-## Setup
+## Building an example
 
 ```sh
 rustup target add wasm32-unknown-unknown
-./tools/check.sh
+./tools/check.sh   # (optional)
+cd examples/rtlsdr-fm
+./build-local.sh
+../serve.py
 ```
 
 The examples have independent Cargo workspaces and their own build scripts.
-Their HTML/WASM version checks now use this repository's Git version. See the
+Their HTML/WASM version checks use this repository's Git version. See the
 [application skill](.agents/skills/rustradio-ui-app/SKILL.md) for worker setup,
 themes, packaging, and cross-origin isolation.
 
@@ -33,7 +36,16 @@ and publish to crates.io.
 - [`iq-waterfall`](examples/iq-waterfall): experimental WebSocket I/Q client
   with host, port, and source controls and a waterfall display (`unstable`).
 
-## Time sink triggering
+## Technical notes
+
+### Worker startup
+
+The bootstrap checks that the main and worker message types match before
+reconstructing their channels. Applications should use the library startup API;
+bootstrap pointer transfer still assumes shared memory and a live pointer that
+is transferred only once.
+
+### Time sink triggering
 
 `TimeSink` runs continuously by default. Use its Trigger and Trigger level
 controls, or configure it after mounting:
@@ -76,10 +88,3 @@ that no longer fits the window.
 
 The X axis uses milliseconds when the displayed span is shorter than one second;
 longer spans use seconds. This changes tick labels and the unit label together.
-
-## Worker startup
-
-The bootstrap checks that the main and worker message types match before
-reconstructing their channels. Applications should use the library startup API;
-bootstrap pointer transfer still assumes shared memory and a live pointer that
-is transferred only once.
