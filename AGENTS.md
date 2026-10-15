@@ -1,5 +1,7 @@
 # Agent Notes
 
+* Never commit paths from the local machine outside the git repo
+
 ## Dependencies
 
 Avoid adding dependencies. Ask the user if it truly is the best choice. Never
