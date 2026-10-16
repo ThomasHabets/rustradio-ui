@@ -39,7 +39,7 @@ impl<App: crate::ApplicationSpecific + 'static, T: rustradio::Sample> WasmSource
         receiver: impl Into<String>,
     ) -> Result<(Self, ReadStream<T>, async_channel::Sender<Msg<T>>)> {
         let (tx, rx) = async_channel::bounded(PRODUCE_CHANNEL_SIZE);
-        let (dst, src) = new_stream();
+        let (dst, src) = new_stream()?;
         Ok((
             Self {
                 receiver: receiver.into(),

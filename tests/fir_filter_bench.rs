@@ -43,14 +43,15 @@ fn run_fir_filter_graph() {
             Complex::new(phase.sin(), phase.cos())
         })
         .collect::<Vec<_>>();
-    let taps = low_pass_complex(48_000.0, 4_000.0, 1_000.0, WindowType::Hamming);
+    let taps = low_pass_complex(48_000.0, 4_000.0, 1_000.0, WindowType::Hamming)
+        .expect("design low pass filter");
     let taps_len = taps.len();
 
     let (src, src_out) = VectorSource::builder(input)
         .repeat(Repeat::finite(REPEATS))
         .build()
         .expect("build vector source");
-    let (fir, fir_out) = FirFilter::new(src_out, taps);
+    let (fir, fir_out) = FirFilter::new(src_out, taps).expect("build FIR filter");
     let sink = NullSink::new(fir_out);
 
     let mut graph = Graph::new();

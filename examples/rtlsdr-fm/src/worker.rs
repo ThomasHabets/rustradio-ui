@@ -41,7 +41,7 @@ async fn run_graph() -> Result<(), rustradio::Error> {
         90_000.0,
         30_000.0,
         rustradio::window::WindowType::Hamming,
-    );
+    )?;
 
     let prev = blockchain![
         g,
@@ -49,11 +49,11 @@ async fn run_graph() -> Result<(), rustradio::Error> {
         (src, prev),
         {
             let mut dropcount = 0;
-            let (tee, a, prev) = Tee::new(prev);
+            let (tee, a, prev) = Tee::new(prev)?;
             let prev = blockchain![
                 g,
                 prev,
-                StreamChunks::new(prev, SPECTRUM_SIZE),
+                StreamChunks::new(prev, SPECTRUM_SIZE)?,
                 NCMap::new(prev, "downsample", move |i, tags| {
                     dropcount += 1;
                     if dropcount == 15 {
@@ -82,13 +82,15 @@ async fn run_graph() -> Result<(), rustradio::Error> {
             )));
             (tee, a)
         },
-        FirFilter::builder(filter1).deci(DECI as usize).build(prev),
-        QuadratureDemod::new(prev, 1.0),
+        FirFilter::builder(filter1)
+            .deci(DECI as usize)
+            .build(prev)?,
+        QuadratureDemod::new(prev, 1.0)?,
         RationalResampler::builder()
             .deci((samp_rate as usize) / (DECI as usize))
             .interp(AUDIO_SAMPLE_RATE)
             .build(prev)?,
-        StreamChunks::new(prev, AUDIO_CHUNK_SIZE),
+        StreamChunks::new(prev, AUDIO_CHUNK_SIZE)?,
     ];
     g.add(Box::new(FloatPduSink::<MyWorkerToMain>::new(
         prev,
