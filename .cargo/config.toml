@@ -1,2 +1,5 @@
 [env]
 CHROMEDRIVER = { value = "tools/chromedriver", force = true }
+
+[patch.crates-io]
+#rustradio = { path = "../rustradio" }
