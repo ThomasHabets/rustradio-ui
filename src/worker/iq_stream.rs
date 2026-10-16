@@ -78,136 +78,194 @@ impl<T: IqSample> IqStreamSource<T> {
         options: StreamOptions,
         poke: async_channel::Sender<()>,
     ) -> rustradio::Result<(Self, ReadStream<T>, SourceHandle)> {
-        let open = iq_stream::encode_client(&options.open::<T>(source)?)?;
-        let ws = WebSocket::new_with_str(url, "rustradio.iq.v1").map_err(js_error)?;
-        ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
-        let (startup_tx, startup_rx) = async_channel::bounded(1);
-        let slot: TransportSlot = Rc::new(RefCell::new(None));
-        let on_open = Closure::<dyn FnMut(Event)>::new({
-            let (ws, slot, startup, poke) =
-                (ws.clone(), slot.clone(), startup_tx.clone(), poke.clone());
-            move |_| {
-                if ws.protocol() != "rustradio.iq.v1" {
-                    fail(
-                        &slot,
-                        &startup,
-                        &poke,
-                        "server did not negotiate IQ WebSocket subprotocol".into(),
-                    );
-                    let _ = ws.close();
-                } else if let Err(e) = send_binary(&ws, &open) {
-                    fail(&slot, &startup, &poke, format!("Open failed: {e:?}"));
-                }
-            }
-        });
-        let on_message = Closure::<dyn FnMut(MessageEvent)>::new({
-            let (ws, slot, startup, poke) =
-                (ws.clone(), slot.clone(), startup_tx.clone(), poke.clone());
-            move |event: MessageEvent| {
-                let result = (|| {
-                    let buffer = event
-                        .data()
-                        .dyn_into::<js_sys::ArrayBuffer>()
-                        .map_err(|_| "WebSocket messages must be binary".to_owned())?;
-                    // Check browser-owned bytes before copying into WASM memory;
-                    // the shared decoder then checks frame and tag budgets.
-                    if buffer.byte_length() > 2 * 1024 * 1024 {
-                        return Err("IQ envelope byte limit".to_owned());
-                    }
-                    let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
-                    let message = iq_stream::decode_server(&bytes).map_err(|e| e.to_string())?;
-                    if let Some(transport) = slot.borrow().as_ref() {
-                        transport.accept(message).map_err(|e| e.to_string())?;
-                    } else {
-                        startup
-                            .try_send(Ok(message))
-                            .map_err(|_| "server sent messages before initial credit".to_owned())?;
-                    }
-                    Ok::<_, String>(())
-                })();
-                if let Err(e) = result {
-                    fail(&slot, &startup, &poke, e);
-                    let _ = ws.close_with_code(1002);
-                }
-                let _ = poke.try_send(());
-            }
-        });
-        let on_error = Closure::<dyn FnMut(Event)>::new({
-            let (slot, startup, poke) = (slot.clone(), startup_tx.clone(), poke.clone());
-            move |_| fail(&slot, &startup, &poke, "WebSocket connection failed".into())
-        });
-        let on_close = Closure::<dyn FnMut(CloseEvent)>::new({
-            let (slot, startup, poke) = (slot.clone(), startup_tx.clone(), poke.clone());
-            move |event: CloseEvent| {
-                if let Some(transport) = slot.borrow().as_ref() {
-                    if transport.handle().status() != SourceStatus::Cancelled {
-                        if event.code() == 1000 && event.was_clean() {
-                            if let Err(e) = transport.finish() {
-                                transport.fail(e.to_string());
-                            }
-                        } else {
-                            transport.fail(format!("WebSocket closed with code {}", event.code()));
-                        }
-                    }
-                } else {
-                    let _ = startup.try_send(Err("WebSocket closed before Started".into()));
-                }
-                let _ = poke.try_send(());
-            }
-        });
-        ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
-        ws.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
-        ws.set_onerror(Some(on_error.as_ref().unchecked_ref()));
-        ws.set_onclose(Some(on_close.as_ref().unchecked_ref()));
-        let socket = Socket {
-            ws,
-            _open: on_open,
-            _message: on_message,
-            _error: on_error,
-            _close: on_close,
-        };
-        let first = startup_rx
-            .recv()
-            .await
-            .map_err(|e| error(e.to_string()))?
-            .map_err(error)?;
-        let started = match first.message.body {
-            Some(proto::server_message::Body::Started(started)) => started,
-            Some(proto::server_message::Body::Failure(failure)) => {
-                return Err(error(failure.message));
-            }
-            _ => return Err(error("first server message must be Started")),
-        };
-        let (inner, out, handle, transport) =
-            iq_stream::IqStreamSource::from_started(started, &options)?;
-        let transport = Arc::new(transport);
-        *slot.borrow_mut() = Some(transport.clone());
-        // JS handles remain in this worker-local task. The graph owns only the
-        // common source and bounded channels, so its Block still satisfies Send.
-        wasm_bindgen_futures::spawn_local(async move {
-            while let Some(message) = transport.next_control().await {
-                let cancelled =
-                    matches!(message.body, Some(proto::client_message::Body::Cancel(_)));
-                let result = iq_stream::encode_client(&message).and_then(|bytes| {
-                    if socket.ws.buffered_amount() as usize + bytes.len() > 64 * 1024 {
-                        return Err(error("IQ WebSocket control buffer exceeded"));
-                    }
-                    send_binary(&socket.ws, &bytes).map_err(js_error)
-                });
-                if let Err(e) = result {
-                    transport.fail(e.to_string());
-                    let _ = poke.try_send(());
-                    break;
-                }
-                if cancelled {
-                    break;
-                }
-            }
-            drop(socket);
-        });
+        let (inner, out, handle) = connect_port(
+            url,
+            options.open::<T>(source)?,
+            options,
+            poke,
+            iq_stream::IqStreamSource::<T>::from_started,
+        )
+        .await?;
         Ok((Self { inner }, out, handle))
     }
 }
+
+type StartedPort<S, O> = (S, O, SourceHandle, SourceTransport);
+
+async fn connect_port<S, O>(
+    url: &str,
+    open: proto::ClientMessage,
+    options: StreamOptions,
+    poke: async_channel::Sender<()>,
+    make_port: impl FnOnce(proto::Started, &StreamOptions) -> rustradio::Result<StartedPort<S, O>>,
+) -> rustradio::Result<(S, O, SourceHandle)> {
+    let open = iq_stream::encode_client(&open)?;
+    let ws = WebSocket::new_with_str(url, "rustradio.iq.v1").map_err(js_error)?;
+    ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
+    let (startup_tx, startup_rx) = async_channel::bounded(1);
+    let slot: TransportSlot = Rc::new(RefCell::new(None));
+    let on_open = Closure::<dyn FnMut(Event)>::new({
+        let (ws, slot, startup, poke) =
+            (ws.clone(), slot.clone(), startup_tx.clone(), poke.clone());
+        move |_| {
+            if ws.protocol() != "rustradio.iq.v1" {
+                fail(
+                    &slot,
+                    &startup,
+                    &poke,
+                    "server did not negotiate IQ WebSocket subprotocol".into(),
+                );
+                let _ = ws.close();
+            } else if let Err(e) = send_binary(&ws, &open) {
+                fail(&slot, &startup, &poke, format!("Open failed: {e:?}"));
+            }
+        }
+    });
+    let on_message = Closure::<dyn FnMut(MessageEvent)>::new({
+        let (ws, slot, startup, poke) =
+            (ws.clone(), slot.clone(), startup_tx.clone(), poke.clone());
+        move |event: MessageEvent| {
+            let result = (|| {
+                let buffer = event
+                    .data()
+                    .dyn_into::<js_sys::ArrayBuffer>()
+                    .map_err(|_| "WebSocket messages must be binary".to_owned())?;
+                // Check browser-owned bytes before copying into WASM memory;
+                // the shared decoder then checks frame and tag budgets.
+                if buffer.byte_length() > 2 * 1024 * 1024 {
+                    return Err("IQ envelope byte limit".to_owned());
+                }
+                let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
+                let message = iq_stream::decode_server(&bytes).map_err(|e| e.to_string())?;
+                if let Some(transport) = slot.borrow().as_ref() {
+                    transport.accept(message).map_err(|e| e.to_string())?;
+                } else {
+                    startup
+                        .try_send(Ok(message))
+                        .map_err(|_| "server sent messages before initial credit".to_owned())?;
+                }
+                Ok::<_, String>(())
+            })();
+            if let Err(e) = result {
+                fail(&slot, &startup, &poke, e);
+                let _ = ws.close_with_code(1002);
+            }
+            let _ = poke.try_send(());
+        }
+    });
+    let on_error = Closure::<dyn FnMut(Event)>::new({
+        let (slot, startup, poke) = (slot.clone(), startup_tx.clone(), poke.clone());
+        move |_| fail(&slot, &startup, &poke, "WebSocket connection failed".into())
+    });
+    let on_close = Closure::<dyn FnMut(CloseEvent)>::new({
+        let (slot, startup, poke) = (slot.clone(), startup_tx.clone(), poke.clone());
+        move |event: CloseEvent| {
+            if let Some(transport) = slot.borrow().as_ref() {
+                if transport.handle().status() != SourceStatus::Cancelled {
+                    if event.code() == 1000 && event.was_clean() {
+                        if let Err(e) = transport.finish() {
+                            transport.fail(e.to_string());
+                        }
+                    } else {
+                        transport.fail(format!("WebSocket closed with code {}", event.code()));
+                    }
+                }
+            } else {
+                let _ = startup.try_send(Err("WebSocket closed before Started".into()));
+            }
+            let _ = poke.try_send(());
+        }
+    });
+    ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
+    ws.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
+    ws.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+    ws.set_onclose(Some(on_close.as_ref().unchecked_ref()));
+    let socket = Socket {
+        ws,
+        _open: on_open,
+        _message: on_message,
+        _error: on_error,
+        _close: on_close,
+    };
+    let first = startup_rx
+        .recv()
+        .await
+        .map_err(|e| error(e.to_string()))?
+        .map_err(error)?;
+    let started = match first.message.body {
+        Some(proto::server_message::Body::Started(started)) => started,
+        Some(proto::server_message::Body::Failure(failure)) => {
+            return Err(error(failure.message));
+        }
+        _ => return Err(error("first server message must be Started")),
+    };
+    let (inner, out, handle, transport) = make_port(started, &options)?;
+    let transport = Arc::new(transport);
+    *slot.borrow_mut() = Some(transport.clone());
+    // JS handles remain in this worker-local task. The graph owns only the
+    // common source and bounded channels, so its Block still satisfies Send.
+    wasm_bindgen_futures::spawn_local(async move {
+        while let Some(message) = transport.next_control().await {
+            let cancelled = matches!(message.body, Some(proto::client_message::Body::Cancel(_)));
+            let result = iq_stream::encode_client(&message).and_then(|bytes| {
+                if socket.ws.buffered_amount() as usize + bytes.len() > 64 * 1024 {
+                    return Err(error("IQ WebSocket control buffer exceeded"));
+                }
+                send_binary(&socket.ws, &bytes).map_err(js_error)
+            });
+            if let Err(e) = result {
+                transport.fail(e.to_string());
+                let _ = poke.try_send(());
+                break;
+            }
+            if cancelled {
+                break;
+            }
+        }
+        drop(socket);
+    });
+    Ok((inner, out, handle))
+}
+
+/// Browser worker source preserving individual UTF-8 string messages.
+///
+/// Pass the wake sender used by `WasmGraph::run_async`. The returned handle
+/// reports missing messages, and the negotiated rate is in messages per second.
+#[derive(rustradio_macros::Block)]
+#[rustradio(noeof)]
+pub struct IqStreamStringSource {
+    inner: iq_stream::IqStreamStringSource,
+}
+impl IqStreamStringSource {
+    /// Connect to a named string resource over the IQ WebSocket protocol.
+    pub async fn connect(
+        url: &str,
+        source: impl Into<String>,
+        options: StreamOptions,
+        poke: async_channel::Sender<()>,
+    ) -> rustradio::Result<(Self, rustradio::stream::NCReadStream<String>, SourceHandle)> {
+        let (inner, out, handle) = connect_port(
+            url,
+            options.open_strings(source)?,
+            options,
+            poke,
+            iq_stream::IqStreamStringSource::from_started,
+        )
+        .await?;
+        Ok((Self { inner }, out, handle))
+    }
+}
+impl BlockEOF for IqStreamStringSource {
+    fn eof(&mut self) -> bool {
+        self.inner.eof()
+    }
+}
+impl Block for IqStreamStringSource {
+    fn work(&mut self) -> rustradio::Result<BlockRet<'_>> {
+        self.inner.work()
+    }
+}
+
 impl<T: IqSample> BlockEOF for IqStreamSource<T> {
     fn eof(&mut self) -> bool {
         self.inner.eof()
@@ -285,6 +343,67 @@ mod tests {
     fn send(body: proto::server_message::Body) {
         receive(&proto::ServerMessage { body: Some(body) }.encode_to_vec());
     }
+    #[wasm_bindgen_test(async)]
+    async fn browser_strings_preserve_boundaries_and_cancel() {
+        fn assert_send<T: Send>() {}
+        assert_send::<IqStreamStringSource>();
+        let options = StreamOptions::default();
+        let open = options.open_strings("decoded").unwrap();
+        let encoding = match open.body.unwrap() {
+            proto::client_message::Body::Open(open) => match open.operation.unwrap() {
+                proto::open::Operation::Download(download) => {
+                    download.accepted_encodings[0].clone()
+                }
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        };
+        let started = proto::Started {
+            description: Some(proto::StreamDescription {
+                encoding: Some(encoding),
+                sample_rate_hz: 1.0,
+                tag_kinds: vec![1, 3, 4, 5, 6],
+                ..Default::default()
+            }),
+            limits: Some(options.limits.clone()),
+            loss_policy: options.loss_policy as i32,
+            completion_mode: proto::CompletionMode::Accepted as i32,
+            initial_credit: None,
+        };
+        install_fake(
+            &proto::ServerMessage {
+                body: Some(proto::server_message::Body::Started(started)),
+            }
+            .encode_to_vec(),
+        );
+        let (poke, wake) = async_channel::bounded(1);
+        let (mut source, output, handle) =
+            IqStreamStringSource::connect("ws://example/iq/v1/stream", "decoded", options, poke)
+                .await
+                .unwrap();
+        wait_sent(2).await;
+        while wake.try_recv().is_ok() {}
+        for (index, text) in ["hello 🦀\0world", "", "next"].into_iter().enumerate() {
+            send(proto::server_message::Body::Frame(proto::Frame {
+                sequence: index as u64,
+                body: Some(proto::frame::Body::Chunk(proto::SampleChunk {
+                    first_sample: index as u64,
+                    sample_count: 1,
+                    samples: text.as_bytes().to_vec(),
+                    tags: vec![],
+                })),
+            }));
+            assert!(wake.try_recv().is_ok());
+            source.work().unwrap();
+            assert_eq!(output.pop().unwrap().0, text);
+            assert!(output.pop().is_none());
+        }
+        drop(source);
+        wait_sent(3).await;
+        assert_eq!(handle.status(), SourceStatus::Cancelled);
+        restore();
+    }
+
     #[wasm_bindgen_test(async)]
     async fn browser_roundtrip_wakes_graph_preserves_tags_and_waits_for_close() {
         fn assert_send<T: Send>() {}

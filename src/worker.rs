@@ -23,7 +23,7 @@ pub mod float_sink;
 pub mod iq_stream;
 pub mod source;
 #[cfg(feature = "unstable")]
-pub use iq_stream::IqStreamSource;
+pub use iq_stream::{IqStreamSource, IqStreamStringSource};
 
 pub use complex_sink::ComplexSink;
 pub use float_pdu_sink::FloatPduSink;
