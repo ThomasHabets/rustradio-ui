@@ -1,7 +1,8 @@
 # I/Q waterfall
 
-A small WASM client for a native `IqStreamSink`. Enter a host, port, and source
-identifier, then connect to view a waterfall. It uses the experimental
+A small WASM client for a native `IqStreamSink`. Enter a host and port, select
+a source from the server's stream list, then connect to view a waterfall. It uses
+the experimental
 `rustradio-ui::worker::IqStreamSource`, with socket and DSP work in a worker.
 There is no WebUSB or audio setup.
 
@@ -12,7 +13,7 @@ Install `wasm-pack` and the nightly Rust toolchain with `rust-src`, then run:
 ```sh
 cd examples/iq-waterfall
 ./build-local.sh
-python3 serve.py
+python3 ../serve.py
 ```
 
 Open <http://127.0.0.1:8080>. The included server sets the COOP and COEP headers
@@ -27,19 +28,21 @@ and clear cached assets if an old version is being served. Direct WASM builds
 alone do not replace the HTML version placeholder; use `build-local.sh` to
 produce a complete package.
 
-For a test stream, run this from the repository root:
+For a test stream, run this from the `rustradio` repository root:
 
 ```sh
 cargo run --features unstable --example iq_waterfall
 ```
 
-Use host `127.0.0.1`, port `50051`, source `iq`, and **Blocking (lossless)**.
+Use host `127.0.0.1`, port `50051`, select `iq`, and **Blocking (lossless)**.
 The test server generates a complex tone at +6 kHz with a 48 ksample/s rate.
 Disconnect and reconnect using the same buttons. Stop the server with Ctrl-C.
 
 ## Stream settings
 
-- The source identifier must match the name registered by the native sink.
+- The source dropdown loads automatically on startup and when the host, port,
+  or TLS setting changes. Use **Refresh streams** to reload it. Non-complex,
+  unsupported, and ended streams stay visible but cannot be selected.
 - This viewer accepts **complex float32** samples. The protocol supplies the
   sample rate; the waterfall axis updates automatically after connection.
   Frequencies are relative to the stream center, from −rate/2 to +rate/2.
@@ -48,6 +51,12 @@ Disconnect and reconnect using the same buttons. Stop the server with Ctrl-C.
 - TLS selects `wss://`; otherwise the URL is `ws://HOST:PORT/iq/v1/stream`.
   HTTPS pages select TLS by default and require a secure backend connection.
   TLS can be provided by a reverse proxy in front of the native listener.
+- Discovery uses the HTTP representation of `ListStreams` at
+  `http(s)://HOST:PORT/iq/v1/streams`. If the server has a different origin from
+  this page, its catalog response must include `Access-Control-Allow-Origin`
+  permitting the page (or `*`). Use a server with the catalog CORS fix or configure
+  these headers in the reverse proxy; rustradio 0.19.4 does not include them.
+  A failed or empty discovery leaves Connect disabled and allows refreshing.
 
 The graph uses 2048-sample Hamming windows and computes at most about 30 FFT
 rows per second. Display queues are bounded and may skip rows if rendering is

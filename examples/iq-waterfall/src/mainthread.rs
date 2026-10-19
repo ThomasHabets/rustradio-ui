@@ -1,4 +1,6 @@
-use std::cell::OnceCell;
+use std::cell::{Cell, OnceCell};
+
+use rustradio::iq_stream::IqSample;
 
 use rustradio_ui::mainthread::spectrum_sink::{WaterfallSink, WaterfallSinkOptions};
 use rustradio_ui::mainthread::{get_button, get_element, get_input, send_message};
@@ -8,6 +10,9 @@ use wasm_bindgen_futures::spawn_local;
 use crate::{AppMessage, Connection, MainToWorker, WorkerToMain};
 
 thread_local! {
+    static READY: Cell<bool> = const { Cell::new(false) };
+    static ACTIVE: Cell<bool> = const { Cell::new(false) };
+    static LOADING: Cell<bool> = const { Cell::new(false) };
     static WATERFALL: OnceCell<WaterfallSink> = const { OnceCell::new() };
 }
 
@@ -16,19 +21,176 @@ fn status(text: &str) -> Result<(), JsValue> {
     Ok(())
 }
 
-fn controls(active: bool) -> Result<(), JsValue> {
-    get_button("connect")?.set_disabled(active);
-    get_button("disconnect")?.set_disabled(!active);
-    for name in ["host", "port", "source", "tls"] {
-        get_input(name)?.set_disabled(active);
+// Use the HTTP representation of ListStreams, which is available to browsers
+// without a gRPC transport. Keep a stalled server from locking the controls.
+#[wasm_bindgen(inline_js = "
+    export async function list_streams(url) {
+        const response = await fetch(url, {signal: AbortSignal.timeout(10000), cache: 'no-store'});
+        if (!response.ok) throw new Error(`Stream list request failed: HTTP ${response.status}`);
+        const streams = await response.json();
+        if (!Array.isArray(streams) || streams.some(stream =>
+            !stream || typeof stream.name !== 'string' || !stream.name ||
+            typeof stream.messages !== 'boolean' || typeof stream.ended !== 'boolean')) {
+            throw new Error('Invalid stream list from server');
+        }
+        return streams;
     }
+")]
+extern "C" {
+    #[wasm_bindgen(catch)]
+    async fn list_streams(url: &str) -> Result<web_sys::js_sys::Array, JsValue>;
+
+    type CatalogStream;
+    #[wasm_bindgen(method, getter)]
+    fn name(this: &CatalogStream) -> String;
+    #[wasm_bindgen(method, getter)]
+    fn messages(this: &CatalogStream) -> bool;
+    #[wasm_bindgen(method, getter)]
+    fn ended(this: &CatalogStream) -> bool;
+    #[wasm_bindgen(method, getter)]
+    fn encoding(this: &CatalogStream) -> Option<CatalogEncoding>;
+
+    type CatalogEncoding;
+    #[wasm_bindgen(method, getter)]
+    fn component_type(this: &CatalogEncoding) -> i32;
+    #[wasm_bindgen(method, getter)]
+    fn byte_order(this: &CatalogEncoding) -> i32;
+    #[wasm_bindgen(method, getter)]
+    fn layout(this: &CatalogEncoding) -> i32;
+}
+
+fn source_picker() -> Result<web_sys::HtmlSelectElement, JsValue> {
+    Ok(get_element("source")?.dyn_into()?)
+}
+
+fn selected_source() -> Result<String, JsValue> {
+    let picker = source_picker()?;
+    if picker.value().is_empty()
+        || !picker
+            .query_selector("option:checked")?
+            .is_some_and(|option| !option.has_attribute("disabled"))
+    {
+        return Err(JsValue::from_str(
+            "Select an available complex float32 stream.",
+        ));
+    }
+    Ok(picker.value())
+}
+
+fn update_controls() -> Result<(), JsValue> {
+    let busy = ACTIVE.get() || LOADING.get() || !READY.get();
+    get_button("connect")?.set_disabled(busy || selected_source().is_err());
+    get_button("disconnect")?.set_disabled(!ACTIVE.get());
+    get_button("refresh")?.set_disabled(busy);
+    for name in ["host", "port", "tls"] {
+        get_input(name)?.set_disabled(busy);
+    }
+    source_picker()?.set_disabled(busy);
     get_element("loss-policy")?
         .dyn_into::<web_sys::HtmlSelectElement>()?
-        .set_disabled(active);
+        .set_disabled(busy);
     Ok(())
 }
 
-fn connection() -> Result<Connection, JsValue> {
+fn controls(active: bool) -> Result<(), JsValue> {
+    ACTIVE.set(active);
+    update_controls()
+}
+
+fn show_streams(streams: web_sys::js_sys::Array, previous: &str) -> Result<(), JsValue> {
+    let picker = source_picker()?;
+    picker.set_text_content(None);
+    let document = web_sys::window()
+        .expect("main thread")
+        .document()
+        .expect("document");
+    let expected = <rustradio::Complex as IqSample>::encoding();
+    let mut first = None;
+    let mut keep_previous = false;
+    for value in streams.iter() {
+        let stream: CatalogStream = value.unchecked_into();
+        let compatible = !stream.messages()
+            && stream.encoding().is_some_and(|encoding| {
+                encoding.component_type() == expected.component_type
+                    && encoding.byte_order() == expected.byte_order
+                    && encoding.layout() == expected.layout
+            });
+        let enabled = compatible && !stream.ended();
+        let name = stream.name();
+        let option = document.create_element("option")?;
+        option.set_attribute("value", &name)?;
+        let label = if stream.ended() {
+            format!("{name} (ended)")
+        } else if !compatible {
+            format!("{name} (not complex float32)")
+        } else {
+            name.clone()
+        };
+        option.set_text_content(Some(&label));
+        if enabled {
+            first.get_or_insert_with(|| name.clone());
+            keep_previous |= name == previous;
+        } else {
+            option.set_attribute("disabled", "")?;
+        }
+        picker.append_child(&option)?;
+    }
+    if streams.length() == 0 {
+        let option = document.create_element("option")?;
+        option.set_text_content(Some("No streams available"));
+        option.set_attribute("disabled", "")?;
+        picker.append_child(&option)?;
+    }
+    picker.set_selected_index(-1);
+    if keep_previous {
+        picker.set_value(previous);
+    } else if let Some(first) = first {
+        picker.set_value(&first);
+    }
+    Ok(())
+}
+
+fn refresh_streams() {
+    if !READY.get() || ACTIVE.get() || LOADING.get() {
+        return;
+    }
+    let result = (|| {
+        let previous = source_picker()?.value();
+        source_picker()?.set_text_content(None);
+        let url = server_url()?;
+        url.set_protocol(if url.protocol() == "wss:" {
+            "https:"
+        } else {
+            "http:"
+        });
+        url.set_pathname("/iq/v1/streams");
+        LOADING.set(true);
+        update_controls()?;
+        status("Loading streams…")?;
+        spawn_local(async move {
+            let result = match list_streams(&url.href()).await {
+                Ok(streams) => show_streams(streams, &previous),
+                Err(e) => Err(e),
+            };
+            LOADING.set(false);
+            let text = match result {
+                Ok(()) if selected_source().is_ok() => "Select a stream and connect".into(),
+                Ok(()) => "No available complex float32 streams. Refresh to try again.".into(),
+                Err(e) => format!("Could not list streams: {e:?}"),
+            };
+            let _ = status(&text);
+            let _ = update_controls();
+        });
+        Ok::<_, JsValue>(())
+    })();
+    if let Err(e) = result {
+        LOADING.set(false);
+        let _ = status(&e.as_string().unwrap_or_else(|| format!("{e:?}")));
+        let _ = update_controls();
+    }
+}
+
+fn server_url() -> Result<web_sys::Url, JsValue> {
     let host = get_input("host")?.value().trim().to_owned();
     if host.is_empty()
         || host.contains(['/', '?', '#', '@'])
@@ -55,11 +217,12 @@ fn connection() -> Result<Connection, JsValue> {
     } else {
         "ws"
     };
-    let url = web_sys::Url::new(&format!("{scheme}://{host}:{port}/iq/v1/stream"))?;
-    let source = get_input("source")?.value().trim().to_owned();
-    if source.is_empty() {
-        return Err(JsValue::from_str("Enter the sink's source identifier."));
-    }
+    web_sys::Url::new(&format!("{scheme}://{host}:{port}/iq/v1/stream"))
+}
+
+fn connection() -> Result<Connection, JsValue> {
+    let url = server_url()?;
+    let source = selected_source()?;
     let allow_gaps = get_element("loss-policy")?
         .dyn_into::<web_sys::HtmlSelectElement>()?
         .value()
@@ -95,8 +258,9 @@ fn connect() {
 async fn worker_msg(message: WorkerToMain) -> Result<(), JsValue> {
     match message {
         WorkerToMain::Ready(_) => {
+            READY.set(true);
             controls(false)?;
-            status("Ready to connect")?;
+            refresh_streams();
         }
         WorkerToMain::ApplicationSpecific(AppMessage::Connected {
             sample_rate,
@@ -159,6 +323,20 @@ pub(crate) fn setup() -> Result<(), JsValue> {
     WATERFALL.with(|slot| {
         let _ = slot.set(waterfall);
     });
+    let refresh_handler = Closure::<dyn FnMut()>::new(refresh_streams);
+    get_button("refresh")?
+        .add_event_listener_with_callback("click", refresh_handler.as_ref().unchecked_ref())?;
+    for name in ["host", "port", "tls"] {
+        get_input(name)?
+            .add_event_listener_with_callback("change", refresh_handler.as_ref().unchecked_ref())?;
+    }
+    refresh_handler.forget();
+    let source_handler = Closure::<dyn FnMut()>::new(|| {
+        let _ = update_controls();
+    });
+    source_picker()?
+        .add_event_listener_with_callback("change", source_handler.as_ref().unchecked_ref())?;
+    source_handler.forget();
     let connect_handler = Closure::<dyn FnMut()>::new(connect);
     get_button("connect")?
         .add_event_listener_with_callback("click", connect_handler.as_ref().unchecked_ref())?;

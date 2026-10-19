@@ -12,6 +12,7 @@ input, select, button { font: inherit; border-radius: 6px; padding: 8px 10px; }
 .buttons { display: flex; gap: 8px; }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
+option:disabled { color: light-dark(#6b7280, #9ca3af); }
 .help { font-size: 0.9rem; color: light-dark(#506174, #a1b0c2); }
 #status { min-height: 1.5em; }
 #waterfall { margin: 20px 0; }
