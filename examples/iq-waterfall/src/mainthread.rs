@@ -26,13 +26,30 @@ fn status(text: &str) -> Result<(), JsValue> {
 // without a gRPC transport. Keep a stalled server from locking the controls.
 #[wasm_bindgen(inline_js = "
     export async function list_streams(url) {
-        const response = await fetch(url, {signal: AbortSignal.timeout(10000), cache: 'no-store'});
-        if (!response.ok) throw new Error(`Stream list request failed: HTTP ${response.status}`);
-        const streams = await response.json();
+        let response;
+        try {
+            response = await fetch(url, {signal: AbortSignal.timeout(10000), cache: 'no-store'});
+        } catch (error) {
+            console.warn('Stream discovery failed', error);
+            if (error.name === 'TimeoutError') {
+                throw 'Server took too long to respond. Check the address and try again.';
+            }
+            throw 'Could not reach the server. Check the host, port and TLS setting, then try again.';
+        }
+        if (!response.ok) {
+            throw `Could not fetch streams (HTTP ${response.status}). Check the server and try again.`;
+        }
+        let streams;
+        try {
+            streams = await response.json();
+        } catch (error) {
+            console.warn('Invalid stream list', error);
+            throw 'Server did not return a stream list. Check that this is a RustRadio server.';
+        }
         if (!Array.isArray(streams) || streams.some(stream =>
             !stream || typeof stream.name !== 'string' || !stream.name ||
             typeof stream.messages !== 'boolean' || typeof stream.ended !== 'boolean')) {
-            throw new Error('Invalid stream list from server');
+            throw 'Server returned an invalid stream list. Check that this is a RustRadio server.';
         }
         return streams;
     }
@@ -218,7 +235,10 @@ fn fetch_streams() {
                 Ok(()) => {
                     "No available complex float32 streams. Fetch streams to try again.".into()
                 }
-                Err(e) => format!("Could not list streams: {e:?}"),
+                Err(e) => e.as_string().unwrap_or_else(|| {
+                    log::warn!("Could not display stream list: {e:?}");
+                    "Could not load streams. Try fetching them again.".into()
+                }),
             };
             let _ = get_element("stream-hint").map(|hint| {
                 hint.set_text_content(Some(if selected_source().is_ok() {
@@ -234,7 +254,10 @@ fn fetch_streams() {
     })();
     if let Err(e) = result {
         LOADING.set(false);
-        let _ = status(&e.as_string().unwrap_or_else(|| format!("{e:?}")));
+        let _ = status(&e.as_string().unwrap_or_else(|| {
+            log::warn!("Could not fetch stream list: {e:?}");
+            "Could not fetch streams. Check the server address and try again.".into()
+        }));
         let _ = update_controls();
     }
 }
