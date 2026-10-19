@@ -12,6 +12,7 @@ use crate::{AppMessage, Connection, MainToWorker, WorkerToMain};
 thread_local! {
     static READY: Cell<bool> = const { Cell::new(false) };
     static ACTIVE: Cell<bool> = const { Cell::new(false) };
+    static FETCHED: Cell<bool> = const { Cell::new(false) };
     static LOADING: Cell<bool> = const { Cell::new(false) };
     static WATERFALL: OnceCell<WaterfallSink> = const { OnceCell::new() };
 }
@@ -82,13 +83,30 @@ fn update_controls() -> Result<(), JsValue> {
     get_button("connect")?.set_disabled(busy || selected_source().is_err());
     get_button("disconnect")?.set_disabled(!ACTIVE.get());
     get_button("refresh")?.set_disabled(busy);
+    get_button("refresh")?.set_text_content(Some(if LOADING.get() {
+        "Fetching streams…"
+    } else {
+        "Fetch streams →"
+    }));
+    get_element("stream-step")?
+        .set_attribute("data-ready", if FETCHED.get() { "true" } else { "false" })?;
+    let stage = if ACTIVE.get() {
+        "active"
+    } else if LOADING.get() {
+        "fetching"
+    } else if FETCHED.get() {
+        "stream"
+    } else {
+        "server"
+    };
+    get_element("connection-steps")?.set_attribute("data-stage", stage)?;
     for name in ["host", "port", "tls"] {
         get_input(name)?.set_disabled(busy);
     }
-    source_picker()?.set_disabled(busy);
+    source_picker()?.set_disabled(busy || !FETCHED.get());
     get_element("loss-policy")?
         .dyn_into::<web_sys::HtmlSelectElement>()?
-        .set_disabled(busy);
+        .set_disabled(busy || selected_source().is_err());
     Ok(())
 }
 
@@ -150,13 +168,33 @@ fn show_streams(streams: web_sys::js_sys::Array, previous: &str) -> Result<(), J
     Ok(())
 }
 
-fn refresh_streams() {
+fn invalidate_streams() {
+    if ACTIVE.get() || LOADING.get() {
+        return;
+    }
+    FETCHED.set(false);
+    source_picker()
+        .map(|picker| {
+            picker.set_inner_html(
+                r#"<option value="" disabled selected>Fetch streams first</option>"#,
+            )
+        })
+        .ok();
+    let _ = get_element("stream-hint").map(|hint| {
+        hint.set_text_content(Some("Fetch streams from your server to unlock this step."))
+    });
+    let _ = status("Enter your server address, then fetch streams.");
+    let _ = update_controls();
+}
+
+fn fetch_streams() {
     if !READY.get() || ACTIVE.get() || LOADING.get() {
         return;
     }
     let result = (|| {
         let previous = source_picker()?.value();
         source_picker()?.set_text_content(None);
+        FETCHED.set(false);
         let url = server_url()?;
         url.set_protocol(if url.protocol() == "wss:" {
             "https:"
@@ -166,18 +204,29 @@ fn refresh_streams() {
         url.set_pathname("/iq/v1/streams");
         LOADING.set(true);
         update_controls()?;
-        status("Loading streams…")?;
+        status("Fetching available streams…")?;
         spawn_local(async move {
             let result = match list_streams(&url.href()).await {
-                Ok(streams) => show_streams(streams, &previous),
+                Ok(streams) => show_streams(streams, &previous).inspect(|_| FETCHED.set(true)),
                 Err(e) => Err(e),
             };
             LOADING.set(false);
             let text = match result {
-                Ok(()) if selected_source().is_ok() => "Select a stream and connect".into(),
-                Ok(()) => "No available complex float32 streams. Refresh to try again.".into(),
+                Ok(()) if selected_source().is_ok() => {
+                    "Streams fetched. Choose a source and start streaming.".into()
+                }
+                Ok(()) => {
+                    "No available complex float32 streams. Fetch streams to try again.".into()
+                }
                 Err(e) => format!("Could not list streams: {e:?}"),
             };
+            let _ = get_element("stream-hint").map(|hint| {
+                hint.set_text_content(Some(if selected_source().is_ok() {
+                    "Choose a source and the mode matching your server’s sink."
+                } else {
+                    "Fetch a list with an available complex float32 source to continue."
+                }))
+            });
             let _ = status(&text);
             let _ = update_controls();
         });
@@ -235,6 +284,9 @@ fn connection() -> Result<Connection, JsValue> {
 }
 
 fn connect() {
+    if !READY.get() || ACTIVE.get() || LOADING.get() || !FETCHED.get() {
+        return;
+    }
     let result = (|| {
         let settings = connection()?;
         WATERFALL
@@ -260,7 +312,7 @@ async fn worker_msg(message: WorkerToMain) -> Result<(), JsValue> {
         WorkerToMain::Ready(_) => {
             READY.set(true);
             controls(false)?;
-            refresh_streams();
+            status("Enter your server address, then fetch streams.")?;
         }
         WorkerToMain::ApplicationSpecific(AppMessage::Connected {
             sample_rate,
@@ -323,14 +375,18 @@ pub(crate) fn setup() -> Result<(), JsValue> {
     WATERFALL.with(|slot| {
         let _ = slot.set(waterfall);
     });
-    let refresh_handler = Closure::<dyn FnMut()>::new(refresh_streams);
+    let refresh_handler = Closure::<dyn FnMut()>::new(fetch_streams);
     get_button("refresh")?
         .add_event_listener_with_callback("click", refresh_handler.as_ref().unchecked_ref())?;
-    for name in ["host", "port", "tls"] {
-        get_input(name)?
-            .add_event_listener_with_callback("change", refresh_handler.as_ref().unchecked_ref())?;
-    }
     refresh_handler.forget();
+    let address_handler = Closure::<dyn FnMut()>::new(invalidate_streams);
+    for name in ["host", "port"] {
+        get_input(name)?
+            .add_event_listener_with_callback("input", address_handler.as_ref().unchecked_ref())?;
+    }
+    get_input("tls")?
+        .add_event_listener_with_callback("change", address_handler.as_ref().unchecked_ref())?;
+    address_handler.forget();
     let source_handler = Closure::<dyn FnMut()>::new(|| {
         let _ = update_controls();
     });
@@ -343,7 +399,7 @@ pub(crate) fn setup() -> Result<(), JsValue> {
     connect_handler.forget();
     let disconnect_handler = Closure::<dyn FnMut()>::new(|| {
         let _ = get_button("disconnect").map(|button| button.set_disabled(true));
-        let _ = status("Disconnecting…");
+        let _ = status("Stopping stream…");
         spawn_local(async {
             if let Err(e) = send_message(MainToWorker::ApplicationSpecific(AppMessage::Stop)).await
             {

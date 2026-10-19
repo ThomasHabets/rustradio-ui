@@ -8,22 +8,45 @@
 </head>
 <body>
   <main>
-    <header><p>RustRadio WASM · experimental</p><h1>I/Q Waterfall</h1></header>
-    <section class="connection" aria-label="Stream connection">
-      <label>Host <input id="host" value="127.0.0.1" autocomplete="off" disabled></label>
-      <label>Port <input id="port" type="number" min="1" max="65535" value="50051" disabled></label>
-      <label>Source <select id="source" disabled></select></label>
-      <label>Sink mode <select id="loss-policy" disabled>
-        <option value="lossless">Blocking (lossless)</option>
-        <option value="gaps">Nonblocking (allow gaps)</option>
-      </select></label>
-      <label class="tls"><input id="tls" type="checkbox" disabled> Secure connection (TLS)</label>
-      <div class="buttons"><button id="refresh" disabled>Refresh streams</button><button id="connect" disabled>Connect</button><button id="disconnect" disabled>Disconnect</button></div>
+    <header class="page-header">
+      <div><p class="eyebrow">RustRadio <span>/</span> Signal viewer</p><h1>I/Q Waterfall</h1>
+        <p class="intro">Explore a live signal, one frequency at a time.</p></div>
+      <span class="badge">Experimental</span>
+    </header>
+    <section id="connection-steps" class="steps" aria-label="Stream setup" data-stage="server">
+      <section class="step" aria-labelledby="server-title">
+        <div class="step-heading"><span class="step-number" aria-hidden="true">01</span>
+          <div><p class="eyebrow">Find your signal</p><h2 id="server-title">Choose a server</h2></div></div>
+        <p class="step-description">Enter the server address to discover its available streams.</p>
+        <div class="server-fields">
+          <label>Host <input id="host" value="127.0.0.1" placeholder="radio.example.com" autocomplete="off" spellcheck="false" disabled></label>
+          <label>Port <input id="port" type="number" min="1" max="65535" value="50051" disabled></label>
+        </div>
+        <label class="tls"><input id="tls" type="checkbox" disabled> Use a secure connection (TLS)</label>
+        <div class="step-actions"><button id="refresh" class="primary" disabled>Fetch streams <span aria-hidden="true">→</span></button></div>
+      </section>
+      <section id="stream-step" class="step" aria-labelledby="stream-title" data-ready="false">
+        <div class="step-heading"><span class="step-number" aria-hidden="true">02</span>
+          <div><p class="eyebrow">Tune in</p><h2 id="stream-title">Start a stream</h2></div></div>
+        <p class="step-description" id="stream-hint">Fetch streams from your server to unlock this step.</p>
+        <div class="stream-fields">
+          <label>Source <select id="source" aria-describedby="stream-help" disabled><option value="" disabled selected>Fetch streams first</option></select></label>
+          <label>Sink mode <select id="loss-policy" disabled>
+            <option value="lossless">Blocking (lossless)</option>
+            <option value="gaps" selected>Nonblocking (allow gaps)</option>
+          </select></label>
+        </div>
+        <p class="field-help" id="stream-help">Complex float32 only. Unsupported streams are greyed out.</p>
+        <div class="step-actions"><button id="connect" class="primary" disabled>Start streaming</button><button id="disconnect" class="secondary" disabled>Stop streaming</button></div>
+      </section>
     </section>
-    <p class="help">Select a complex float32 I/Q stream. Other stream types are greyed out. Sample rate comes from the stream. Select the sink's blocking mode.</p>
-    <p id="status" role="status" aria-live="polite">Starting worker…</p>
-    <section id="waterfall" aria-label="Waterfall display">Loading waterfall…</section>
-    <details><summary>Log</summary><pre id="log-output">Awaiting logs…</pre></details>
+    <div class="session-status"><span class="status-dot" aria-hidden="true"></span><p id="status" role="status" aria-live="polite">Starting worker…</p></div>
+    <section class="display-panel" aria-label="Live waterfall">
+      <div class="display-heading"><span class="eyebrow">Signal monitor</span><span class="field-help">Sample rate follows the stream</span></div>
+      <div id="waterfall" aria-label="Waterfall display">Loading waterfall…</div>
+    </section>
+    <details><summary>Session log</summary><pre id="log-output">Awaiting logs…</pre></details>
+    <footer>RustRadio <span>·</span> Frequency relative to the stream center</footer>
   </main>
   <script type="module" src="wasm-mod.js"></script>
 </body>

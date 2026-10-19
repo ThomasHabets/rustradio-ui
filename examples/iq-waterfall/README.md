@@ -1,8 +1,8 @@
 # I/Q waterfall
 
-A small WASM client for a native `IqStreamSink`. Enter a host and port, select
-a source from the server's stream list, then connect to view a waterfall. It uses
-the experimental
+A small WASM client for a native `IqStreamSink`. Enter a host and port, click
+**Fetch streams**, then select a source and click **Start streaming** to view a
+waterfall. It uses the experimental
 `rustradio-ui::worker::IqStreamSource`, with socket and DSP work in a worker.
 There is no WebUSB or audio setup.
 
@@ -36,12 +36,15 @@ cargo run --features unstable --example iq_waterfall
 
 Use host `127.0.0.1`, port `50051`, select `iq`, and **Blocking (lossless)**.
 The test server generates a complex tone at +6 kHz with a 48 ksample/s rate.
-Disconnect and reconnect using the same buttons. Stop the server with Ctrl-C.
+Use **Stop streaming** and **Start streaming** to stop and restart. Stop the
+server with Ctrl-C.
 
 ## Stream settings
 
-- The source dropdown loads automatically on startup and when the host, port,
-  or TLS setting changes. Use **Refresh streams** to reload it. Non-complex,
+- Enter the host and port, then click **Fetch streams** to populate the source
+  dropdown. Select a source and click **Start streaming**. No server requests
+  happen until you click Fetch streams. Changing the host, port, or TLS setting
+  clears the list so you can fetch from the new address. Non-complex,
   unsupported, and ended streams stay visible but cannot be selected.
 - This viewer accepts **complex float32** samples. The protocol supplies the
   sample rate; the waterfall axis updates automatically after connection.
@@ -56,7 +59,8 @@ Disconnect and reconnect using the same buttons. Stop the server with Ctrl-C.
   this page, its catalog response must include `Access-Control-Allow-Origin`
   permitting the page (or `*`). Use a server with the catalog CORS fix or configure
   these headers in the reverse proxy; rustradio 0.19.4 does not include them.
-  A failed or empty discovery leaves Connect disabled and allows refreshing.
+  A failed or empty discovery leaves Start streaming disabled; click Fetch streams
+  to try again.
 
 The graph uses 2048-sample Hamming windows and computes at most about 30 FFT
 rows per second. Display queues are bounded and may skip rows if rendering is
