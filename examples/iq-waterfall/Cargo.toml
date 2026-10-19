@@ -16,7 +16,7 @@ unstable = ["rustradio/unstable", "rustradio-ui/unstable"]
 async-channel = { version = "2.5.0", default-features = false }
 console_error_panic_hook = "0.1.7"
 log = "0.4.33"
-rustradio = { version = "0.19", features = ["wasm"] }
+rustradio = { version = "0.19.4", features = ["wasm"] }
 rustradio-ui = { path = "../.." }
 rustradio_macros = { version = "0.19" }
 serde = { version = "1.0.228", features = ["derive"] }
