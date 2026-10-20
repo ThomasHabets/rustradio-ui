@@ -7,6 +7,9 @@ export GIT="$(git describe --tags --dirty --always)"
 
 mkdir -p "$DIST_DIR/uhd"
 cp assets/examples/* "$DIST_DIR/"
+sed "s/GIT_VERSION_NOT_SET/${GIT}/g" \
+        assets/examples/index.html \
+        > "$DIST_DIR/index.html"
 (
         cd "$UHD_IMAGES_DIR"
         cp \

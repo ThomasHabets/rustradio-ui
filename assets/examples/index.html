@@ -1,13 +1,119 @@
-<html>
-        <head>
-                <title>RustRadio UI</title>
-        </head>
-        <body>
-                <h2>RustRadio examples</h2>
-                <ul>
-                        <li><a href="rtlsdr-fm/">Live FM receiver</a></li>
-                        <li><a href="iq-waterfall/">IQ Waterfall</a></li>
-                </ul>
-                Build version: GIT_VERSION_NOT_SET
-        </body>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore RustRadio in your browser: a live FM receiver and an I/Q waterfall for streaming signals.">
+  <title>RustRadio UI · Browser examples</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --page: light-dark(#f3f6f7, #0d1418);
+      --surface: light-dark(#fff, #151f25);
+      --text: light-dark(#192c34, #e1edf1);
+      --muted: light-dark(#566b75, #9aafb9);
+      --line: light-dark(#dce5e9, #2a3b44);
+      --accent: light-dark(#087f74, #59d6c3);
+      --tint: light-dark(#e8f6f2, #1a3735);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--text); }
+    a { color: var(--accent); text-underline-offset: 4px; }
+    a:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 4px; }
+    .container { max-width: 1040px; margin: auto; padding-inline: 32px; }
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding-block: 28px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 700; letter-spacing: -0.03em; }
+    .brand svg { width: 28px; height: 28px; color: var(--accent); }
+    .brand span { color: var(--muted); font-weight: 400; }
+    nav { display: flex; flex-wrap: wrap; gap: 24px; font-size: 0.85rem; }
+    nav a { color: var(--muted); text-decoration: none; }
+    nav a:hover { color: var(--accent); text-decoration: underline; }
+    .hero { padding-block: 64px 40px; }
+    .eyebrow { margin: 0 0 12px; color: var(--accent); font-size: 0.72rem; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; }
+    h1 { margin: 0 0 20px; max-width: 700px; font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1.08; letter-spacing: -0.055em; font-weight: 650; }
+    .intro { max-width: 590px; margin: 0; color: var(--muted); font-size: 1.05rem; }
+    .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .example { display: flex; flex-direction: column; min-width: 0; padding: 28px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text); text-decoration: none; transition: border-color 150ms, transform 150ms; }
+    .example:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 28px; }
+    .icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: var(--tint); color: var(--accent); }
+    .icon svg { width: 26px; height: 26px; }
+    .category { color: var(--muted); font: 0.7rem ui-monospace, monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    h2 { margin: 0 0 10px; font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.035em; font-weight: 650; }
+    .description { margin: 0 0 24px; color: var(--muted); font-size: 0.94rem; }
+    .requirements { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; margin-bottom: 28px; }
+    .requirements span { padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); font-size: 0.7rem; }
+    .launch { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--line); color: var(--accent); font-size: 0.85rem; font-weight: 650; }
+    .project { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-block: 36px 48px; padding: 24px 0; border-block: 1px solid var(--line); }
+    .project h2 { margin-bottom: 4px; font-size: 1rem; letter-spacing: 0; }
+    .project p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+    .project a { font-size: 0.85rem; font-weight: 600; }
+    footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-bottom: 28px; color: var(--muted); font-size: 0.75rem; }
+    footer p { margin: 0; }
+    code { font: 0.75rem ui-monospace, monospace; overflow-wrap: anywhere; }
+    @media (max-width: 660px) {
+      .container { padding-inline: 20px; }
+      header { padding-block: 20px; }
+      nav { gap: 16px; }
+      .hero { padding-block: 40px 28px; }
+      .examples { grid-template-columns: 1fr; gap: 16px; }
+      .example { padding: 24px; }
+      .card-top { margin-bottom: 20px; }
+      .project { margin-block: 28px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .example { transition: none; }
+      .example:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12v4m5-9v14m6-18v22m6-18v14m5-9v4"/></svg>
+        RustRadio <span>UI</span>
+      </div>
+      <nav aria-label="Project links">
+        <a href="https://thomashabets.github.io/rustradio/">RustRadio site <span aria-hidden="true">↗</span></a>
+        <a href="https://github.com/ThomasHabets/rustradio-ui">UI source <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="title">
+        <p class="eyebrow">Interactive browser examples</p>
+        <h1>Radio, in your browser.</h1>
+        <p class="intro">Tune a live station or explore a stream of I/Q samples. These examples bring RustRadio’s signal processing to the web with WebAssembly.</p>
+      </section>
+      <section class="examples" aria-label="Choose an example">
+        <a class="example" href="rtlsdr-fm/">
+          <div class="card-top">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="22" height="15" rx="3"/><path d="m7 10 13-7M7 15h7m-7 4h7"/><circle cx="20" cy="18" r="2"/></svg></span>
+            <span class="category">01 / Receiver</span>
+          </div>
+          <h2>Live FM receiver</h2>
+          <p class="description">Listen to FM radio from a connected SDR. Tune the frequency, adjust the gain, and watch the signal on a live waterfall.</p>
+          <div class="requirements"><span>WebUSB browser</span><span>RTL-SDR or USRP B200</span></div>
+          <span class="launch">Open receiver <span aria-hidden="true">→</span></span>
+        </a>
+        <a class="example" href="iq-waterfall/">
+          <div class="card-top">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v20h20M8 18h3l3-9 3 12 3-7h4M8 6h4m8 0h4"/></svg></span>
+            <span class="category">02 / Stream viewer</span>
+          </div>
+          <h2>I/Q waterfall</h2>
+          <p class="description">Connect to a RustRadio server, choose a complex sample stream, and see how its frequency content changes over time.</p>
+          <div class="requirements"><span>RustRadio stream server</span><span>No USB hardware needed</span></div>
+          <span class="launch">Open waterfall <span aria-hidden="true">→</span></span>
+        </a>
+      </section>
+      <aside class="project" aria-labelledby="project-title">
+        <div><h2 id="project-title">Built with RustRadio</h2><p>A Rust library for digital signal processing and software defined radio.</p></div>
+        <a href="https://github.com/ThomasHabets/rustradio">Explore the project <span aria-hidden="true">↗</span></a>
+      </aside>
+    </main>
+    <footer><p>RustRadio UI · Browser examples</p><p>Build <code>GIT_VERSION_NOT_SET</code></p></footer>
+  </div>
+</body>
 </html>
