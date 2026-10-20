@@ -26,6 +26,7 @@ for example in iq-waterfall rtlsdr-fm; do
                         "--${1:-profiling}"
                 cp web/* "$DIST_DIR/$example/"
                 cp ../../assets/bootstrap.js "$DIST_DIR/$example/rustradio-ui-bootstrap.js"
+                cp ../../assets/coi-serviceworker.js "$DIST_DIR/$example/"
                 cat \
                         ../../assets/rustradio.css \
                         web/style.css \
