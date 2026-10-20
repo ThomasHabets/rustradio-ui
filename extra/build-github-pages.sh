@@ -21,7 +21,12 @@ for example in iq-waterfall rtlsdr-fm; do
                         --target web \
                         --out-dir "$DIST_DIR/$example" \
                         "--${1:-profiling}"
-                cp web/* ../../assets/*.* "$DIST_DIR/$example/"
+                cp web/* "$DIST_DIR/$example/"
+                cp ../../assets/bootstrap.js "$DIST_DIR/$example/rustradio-ui-bootstrap.js"
+                cat \
+                        ../../assets/rustradio.css \
+                        web/style.css \
+                        > "$DIST_DIR/$example/style.css"
                 sed "s/GIT_VERSION_NOT_SET/${GIT}/g" \
                         web/index.html \
                         > "$DIST_DIR/$example/index.html"
