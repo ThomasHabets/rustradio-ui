@@ -5,6 +5,11 @@ if (typeof window === "undefined") {
     event.waitUntil(self.clients.claim());
   });
   self.addEventListener("fetch", (event) => {
+    // Let the page request cross-origin resources directly. Forwarding local
+    // requests here can prevent the browser's local-network permission prompt.
+    if (new URL(event.request.url).origin !== self.location.origin) {
+      return;
+    }
     if (event.request.cache === "only-if-cached" && event.request.mode !== "same-origin") {
       return;
     }

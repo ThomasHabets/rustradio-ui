@@ -51,8 +51,9 @@ server with Ctrl-C.
 - Choose the mode matching the sink's `.blocking(bool)`: lossless for `true`,
   allow gaps for `false`. A mismatch is reported by the server.
 - TLS selects `wss://`; otherwise the URL is `ws://HOST:PORT/iq/v1/stream`.
-  HTTPS pages select TLS by default and require a secure backend connection.
-  TLS can be provided by a reverse proxy in front of the native listener.
+  HTTPS pages select TLS by default. For remote servers, use TLS, which can be
+  provided by a reverse proxy in front of the native listener. For a plain HTTP
+  server on `127.0.0.1`, uncheck TLS and follow the local-access notes below.
 - Discovery uses the HTTP representation of `ListStreams` at
   `http(s)://HOST:PORT/iq/v1/streams`. If the server has a different origin from
   this page, its catalog response must include `Access-Control-Allow-Origin`
@@ -60,6 +61,23 @@ server with Ctrl-C.
   these headers in the reverse proxy; rustradio 0.19.4 does not include them.
   A failed or empty discovery leaves Start streaming disabled; click Fetch streams
   to try again.
+
+## GitHub Pages with a local server
+
+Use host `127.0.0.1` and your server's port. Uncheck **Use a secure connection
+(TLS)** if the server speaks plain HTTP, then click **Fetch streams**. In
+browsers supporting local network access permissions, allow the Pages site to
+access the loopback/local network when prompted. If previously denied, change
+that permission in the browser's site settings and try again. The server still
+needs the catalog CORS headers described above.
+
+The isolation service worker handles only same-origin application files. Local
+catalog requests go directly from the page so the browser can ask for network
+permission. Changing COOP/COEP headers does not grant this permission.
+
+Browser support for HTTP/WS connections from an HTTPS page varies. If your
+browser blocks them, serve the viewer locally using the instructions above, or
+provide trusted HTTPS/WSS on the streaming server.
 
 The graph uses 2048-sample Hamming windows and computes at most about 30 FFT
 rows per second. Display queues are bounded and may skip rows if rendering is
