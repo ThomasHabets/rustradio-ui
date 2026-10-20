@@ -9,15 +9,12 @@ license = "MIT"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[features]
-unstable = ["rustradio/unstable", "rustradio-ui/unstable"]
-
 [dependencies]
 async-channel = { version = "2.5.0", default-features = false }
 console_error_panic_hook = "0.1.7"
 log = "0.4.33"
-rustradio = { version = "0.19.6", features = ["wasm"] }
-rustradio-ui = { path = "../.." }
+rustradio = { version = "0.19.6", features = ["wasm", "unstable"] }
+rustradio-ui = { path = "../..", features = ["unstable"] }
 rustradio_macros = { version = "0.19" }
 serde = { version = "1.0.228", features = ["derive"] }
 wasm-bindgen = "0.2.125"

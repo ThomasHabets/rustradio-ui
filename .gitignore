@@ -9,3 +9,4 @@
 *.f32
 *.tgz
 __pycache__/
+dist/

@@ -6,8 +6,7 @@ export IQ_WATERFALL_GIT_VERSION="$(git describe --tags --dirty --always)"
 wasm-pack build \
         --target web \
         --out-dir web-dist \
-        "--${1:-dev}" \
-        --features unstable
+        "--${1:-dev}"
 cp web/index.html web/wasm-mod.js web-dist/
 python3 - <<'PY'
 import html

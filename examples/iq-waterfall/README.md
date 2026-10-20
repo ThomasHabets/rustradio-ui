@@ -18,8 +18,7 @@ python3 ../serve.py
 
 Open <http://127.0.0.1:8080>. The included server sets the COOP and COEP headers
 needed by the shared-memory worker. Build output is in `web-dist/`.
-`./build-local.sh release` builds an optimized version. The script enables
-`unstable`; direct Cargo or wasm-pack builds must enable it too.
+`./build-local.sh release` builds an optimized version.
 
 The packaging script embeds the same Git version in the HTML and WASM. Startup
 checks these versions before enabling controls or starting the worker. Missing
@@ -31,7 +30,7 @@ produce a complete package.
 For a test stream, run this from the `rustradio` repository root:
 
 ```sh
-cargo run --features unstable --example iq_waterfall
+cargo run --example iq_waterfall
 ```
 
 Use host `127.0.0.1`, port `50051`, select `iq`, and **Blocking (lossless)**.

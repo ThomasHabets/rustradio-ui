@@ -1,5 +1,3 @@
-#![cfg(feature = "unstable")]
-
 use wasm_bindgen::prelude::*;
 
 mod mainthread;
