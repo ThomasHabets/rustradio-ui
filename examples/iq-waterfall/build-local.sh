@@ -19,4 +19,5 @@ path.write_text(path.read_text().replace(
 ))
 PY
 cp ../../assets/bootstrap.js web-dist/rustradio-ui-bootstrap.js
+cp ../../assets/favicon.ico web-dist/
 cat ../../assets/rustradio.css web/style.css > web-dist/style.css

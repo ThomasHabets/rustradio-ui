@@ -28,6 +28,7 @@ cp \
         "$TMPD/$PREFIX/"
 cp "$UHD_FIRMWARE" "$UHD_FPGA" "$TMPD/$PREFIX/"
 cp "$UI_ASSETS/bootstrap.js" "$TMPD/$PREFIX/rustradio-ui-bootstrap.js"
+cp "$UI_ASSETS/favicon.ico" "$TMPD/$PREFIX/"
 cat "$UI_ASSETS/rustradio.css" "$WEBD/style.css" > "$TMPD/$PREFIX/style.css"
 
 sed -i "s/GIT_VERSION_NOT_SET/$GIT/g" "$TMPD/$PREFIX/index.html"

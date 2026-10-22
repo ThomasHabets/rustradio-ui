@@ -7,6 +7,7 @@ export GIT="$(git describe --tags --dirty --always)"
 
 mkdir -p "$DIST_DIR/uhd"
 cp assets/examples/* "$DIST_DIR/"
+cp assets/favicon.ico "$DIST_DIR/"
 sed "s/GIT_VERSION_NOT_SET/${GIT}/g" \
         assets/examples/index.html \
         > "$DIST_DIR/index.html"
@@ -27,6 +28,7 @@ for example in iq-waterfall rtlsdr-fm; do
                 cp web/* "$DIST_DIR/$example/"
                 cp ../../assets/bootstrap.js "$DIST_DIR/$example/rustradio-ui-bootstrap.js"
                 cp ../../assets/coi-serviceworker.js "$DIST_DIR/$example/"
+                cp ../../assets/favicon.ico "$DIST_DIR/$example/"
                 cat \
                         ../../assets/rustradio.css \
                         web/style.css \
