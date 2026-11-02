@@ -19,7 +19,7 @@ pub enum Msg<T: rustradio::Sample> {
 /// Block for getting data from the UI thread, which in turn gets it from
 /// websocket or a file.
 #[derive(rustradio_macros::Block)]
-#[rustradio(bound = "T: Sample")]
+#[rustradio(bound = "T: rustradio::Sample")]
 pub struct WasmSource<App, T: rustradio::Sample> {
     receiver: String,
     buf: Vec<T>,

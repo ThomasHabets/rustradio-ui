@@ -13,9 +13,9 @@ crate-type = ["cdylib", "rlib"]
 async-channel = { version = "2.5.0", default-features = false }
 console_error_panic_hook = "0.1.7"
 log = "0.4.33"
-rustradio = { version = "0.19.6", features = ["wasm", "unstable"] }
+rustradio = { version = "0.20", features = ["wasm", "unstable"] }
 rustradio-ui = { path = "../..", features = ["unstable"] }
-rustradio_macros = { version = "0.19" }
+rustradio_macros = { version = "0.20" }
 serde = { version = "1.0.228", features = ["derive"] }
 wasm-bindgen = "0.2.125"
 wasm-bindgen-futures = "0.4.75"

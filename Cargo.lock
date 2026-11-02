@@ -565,15 +565,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -828,7 +819,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn 2.0.118",
@@ -1012,16 +1003,16 @@ dependencies = [
 
 [[package]]
 name = "rustradio"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cecf3eb030a8fead4bd91103bde5be3b2edc5cc504a35eba780da223824b407"
+checksum = "3b36f375e078d65443486e3c1d5e778f84c3fb45e528b86002011c7968f404ec"
 dependencies = [
  "async-channel",
  "async-trait",
  "axum",
  "fast-math",
  "futures-util",
- "itertools 0.13.0",
+ "itertools",
  "libc",
  "log",
  "num-complex",
@@ -1065,25 +1056,25 @@ dependencies = [
 
 [[package]]
 name = "rustradio_macros"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d23c1da7ca7aec06f7676a80d5c5a3d436aba2cca6ed1fa6b10ef363f6ec944f"
+checksum = "884266dc91929ca4ed862372921e00acade01859d735379cd0823f09ee8a37b4"
 dependencies = [
  "proc-macro2",
  "quote",
  "rustradio_macros_code",
- "syn 2.0.118",
+ "syn 3.0.3",
 ]
 
 [[package]]
 name = "rustradio_macros_code"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdc574838dc66ae24f0b21897d1583277e3379586c009a72bea2fbb055d9a18a"
+checksum = "8b36a3c4550bebae629136249a9dbe917344e6637858400a82069c8a027189e9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.118",
+ "syn 3.0.3",
 ]
 
 [[package]]
