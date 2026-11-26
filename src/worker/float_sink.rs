@@ -26,17 +26,15 @@ pub struct FloatSink<App> {
 
 impl<App: crate::ApplicationSpecific> Block for FloatSink<App> {
     fn work(&mut self) -> rustradio::Result<BlockRet<'_>> {
-        let (input, tags) = self.src.read_buf()?;
+        let input = self.src.read_buf()?;
         let ilen = input.len();
         if ilen > 0 {
+            let data = input.slice().to_vec();
+            let tags = input.consume(ilen);
             send_message_sync(WorkerToMain::<App>::Floats(
                 self.name.clone(),
-                vec![TaggedVec {
-                    data: input.slice().to_vec(),
-                    tags,
-                }],
+                vec![TaggedVec { data, tags }],
             ))?;
-            input.consume(ilen);
         }
         Ok(BlockRet::WaitForStream(&self.src, 1))
     }

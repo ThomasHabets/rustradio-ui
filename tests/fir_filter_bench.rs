@@ -1,6 +1,6 @@
 use rustradio::blocks::{FirFilter, NullSink, VectorSource};
 use rustradio::fir::low_pass_complex;
-use rustradio::graph::{Graph, GraphRunner};
+use rustradio::graph::{Graph, GraphBuildExt, GraphRunner};
 use rustradio::window::WindowType;
 use rustradio::{Complex, Float, Repeat};
 use std::time::Duration;
@@ -55,9 +55,9 @@ fn run_fir_filter_graph() {
     let sink = NullSink::new(fir_out);
 
     let mut graph = Graph::new();
-    graph.add(Box::new(src));
-    graph.add(Box::new(fir));
-    graph.add(Box::new(sink));
+    graph.add(src);
+    graph.add(fir);
+    graph.add(sink);
 
     let start = performance_now();
     graph.run().expect("run FIR benchmark graph");

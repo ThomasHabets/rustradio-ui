@@ -7,7 +7,7 @@ use wasm_bindgen_futures::spawn_local;
 
 use rustradio::Complex;
 use rustradio::blockchain;
-use rustradio::graph::GraphRunner;
+use rustradio::graph::GraphBuildExt;
 use rustradio_ui::worker::{send_message, source};
 use rustradio_ui::{AppEmpty, TaggedVec, spawn};
 
@@ -76,10 +76,7 @@ async fn run_graph() -> Result<(), rustradio::Error> {
                     )]
                 }),
             ];
-            g.add(Box::new(FloatPduSink::<MyWorkerToMain>::new(
-                prev,
-                STREAM_SPECTRUM,
-            )));
+            g.add(FloatPduSink::<MyWorkerToMain>::new(prev, STREAM_SPECTRUM));
             (tee, a)
         },
         FirFilter::builder(filter1)
@@ -92,10 +89,7 @@ async fn run_graph() -> Result<(), rustradio::Error> {
             .build(prev)?,
         StreamChunks::new(prev, AUDIO_CHUNK_SIZE)?,
     ];
-    g.add(Box::new(FloatPduSink::<MyWorkerToMain>::new(
-        prev,
-        STREAM_AUDIO,
-    )));
+    g.add(FloatPduSink::<MyWorkerToMain>::new(prev, STREAM_AUDIO));
     info!("Running graph…");
     let (tx, rx) = async_channel::bounded(SOURCE_CHANNEL_SIZE);
     SOURCE.with(|slot| {

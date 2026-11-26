@@ -5,7 +5,7 @@ use std::task::Poll;
 use async_channel::{Receiver, Sender};
 use rustradio::block::{Block, BlockRet};
 use rustradio::blocks::{Fft, NCMap, StreamChunks};
-use rustradio::graph::GraphRunner;
+use rustradio::graph::GraphBuildExt;
 use rustradio::iq_stream::{GAP_SAMPLES, StreamOptions, proto};
 use rustradio::stream::{NCReadStream, Tag};
 use rustradio::{Complex, Float};
@@ -103,9 +103,9 @@ async fn run_graph(settings: Connection, stop: Receiver<()>) -> rustradio::Resul
     }))
     .await?;
     let mut graph = rustradio::wasm::wasm_graph::WasmGraph::new();
-    graph.add(Box::new(source));
+    graph.add(source);
     let (chunks, chunks_out) = StreamChunks::new(samples, FFT_SIZE)?;
-    graph.add(Box::new(chunks));
+    graph.add(chunks);
     let window = rustradio::window::WindowType::Hamming
         .make_window(FFT_SIZE)
         .0;
@@ -122,9 +122,9 @@ async fn run_graph(settings: Connection, stop: Receiver<()>) -> rustradio::Resul
             vec![]
         }
     });
-    graph.add(Box::new(select));
+    graph.add(select);
     let (fft, fft_out) = Fft::from_fft_size(fft_in, FFT_SIZE)?;
-    graph.add(Box::new(fft));
+    graph.add(fft);
     let (power, power_out) = NCMap::new(fft_out, "FFT power", |bins: Vec<Complex>, tags| {
         vec![(
             bins.iter()
@@ -133,13 +133,13 @@ async fn run_graph(settings: Connection, stop: Receiver<()>) -> rustradio::Resul
             tags,
         )]
     });
-    graph.add(Box::new(power));
+    graph.add(power);
     let (frames, rows) = async_channel::bounded(2);
     let (display_done, display_finished) = async_channel::bounded(1);
-    graph.add(Box::new(DisplaySink {
+    graph.add(DisplaySink {
         src: power_out,
         frames,
-    }));
+    });
     // This task exits when graph teardown drops the last frame sender.
     spawn_local(async move {
         while let Ok(row) = rows.recv().await {
