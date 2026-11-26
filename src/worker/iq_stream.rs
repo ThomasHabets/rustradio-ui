@@ -457,9 +457,12 @@ mod tests {
         }));
         assert!(wake.try_recv().is_ok());
         source.work().unwrap();
-        let (data, tags) = output.read_buf().unwrap();
+        let data = output.read_buf().unwrap();
         assert_eq!(data.slice(), &[0.5]);
-        assert_eq!(tags[0].val(), &rustradio::stream::TagValue::U64(u64::MAX));
+        assert_eq!(
+            data.tags()[0].val(),
+            &rustradio::stream::TagValue::U64(u64::MAX)
+        );
         data.consume(1);
         send(proto::server_message::Body::End(proto::End {
             next_sequence: 1,
