@@ -460,10 +460,10 @@ mod tests {
         let data = output.read_buf().unwrap();
         assert_eq!(data.slice(), &[0.5]);
         assert_eq!(
-            data.tags()[0].val(),
+            data.tags().next().unwrap().val(),
             &rustradio::stream::TagValue::U64(u64::MAX)
         );
-        data.consume(1);
+        data.consume_discard_tags(1);
         send(proto::server_message::Body::End(proto::End {
             next_sequence: 1,
             next_sample: 1,
